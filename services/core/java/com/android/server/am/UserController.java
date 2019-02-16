@@ -357,7 +357,7 @@ class UserController implements Handler.Callback {
                     | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
             mInjector.broadcastIntent(intent, null, resultTo, 0, null, null,
                     new String[]{android.Manifest.permission.RECEIVE_BOOT_COMPLETED},
-                    AppOpsManager.OP_NONE, null, true, false, MY_PID, SYSTEM_UID, userId);
+                    AppOpsManager.OP_BOOT_COMPLETED, null, true, false, MY_PID, SYSTEM_UID, userId);
         }
 
         // We need to delay unlocking managed profiles until the parent user
@@ -557,7 +557,7 @@ class UserController implements Handler.Callback {
                     }
                 }, 0, null, null,
                 new String[]{android.Manifest.permission.RECEIVE_BOOT_COMPLETED},
-                AppOpsManager.OP_NONE, null, true, false, MY_PID, SYSTEM_UID, userId);
+                AppOpsManager.OP_BOOT_COMPLETED, null, true, false, MY_PID, SYSTEM_UID, userId);
     }
 
     int restartUser(final int userId, final boolean foreground) {
@@ -845,10 +845,16 @@ class UserController implements Handler.Callback {
     }
 
     void scheduleStartProfiles() {
-        if (!mHandler.hasMessages(START_PROFILES_MSG)) {
-            mHandler.sendMessageDelayed(mHandler.obtainMessage(START_PROFILES_MSG),
-                    DateUtils.SECOND_IN_MILLIS);
-        }
+        // Parent user transition to RUNNING_UNLOCKING happens on FgThread, so it is busy, there is
+        // a chance the profile will reach RUNNING_LOCKED while parent is still locked, so no
+        // attempt will be made to unlock the profile. If we go via FgThread, this will be executed
+        // after the parent had chance to unlock fully.
+        FgThread.getHandler().post(() -> {
+            if (!mHandler.hasMessages(START_PROFILES_MSG)) {
+                mHandler.sendMessageDelayed(mHandler.obtainMessage(START_PROFILES_MSG),
+                        DateUtils.SECOND_IN_MILLIS);
+            }
+        });
     }
 
     void startProfiles() {

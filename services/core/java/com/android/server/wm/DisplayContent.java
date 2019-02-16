@@ -400,6 +400,9 @@ class DisplayContent extends WindowContainer<DisplayContent.DisplayChildWindowCo
 
     private MagnificationSpec mMagnificationSpec;
 
+    /** Caches the value whether told display manager that we have content. */
+    private boolean mLastHasContent;
+
     private final Consumer<WindowState> mUpdateWindowsForAnimator = w -> {
         WindowStateAnimator winAnimator = w.mWinAnimator;
         final AppWindowToken atoken = w.mAppToken;
@@ -773,7 +776,8 @@ class DisplayContent extends WindowContainer<DisplayContent.DisplayChildWindowCo
 
         final SurfaceControl.Builder b = mService.makeSurfaceBuilder(mSession)
                 .setSize(mSurfaceSize, mSurfaceSize)
-                .setOpaque(true);
+                .setOpaque(true)
+                .setContainerLayer(true);
         mWindowingLayer = b.setName("Display Root").build();
         mOverlayLayer = b.setName("Display Overlays").build();
 
@@ -2916,8 +2920,9 @@ class DisplayContent extends WindowContainer<DisplayContent.DisplayChildWindowCo
         forAllWindows(mApplySurfaceChangesTransaction, true /* traverseTopToBottom */);
         prepareSurfaces();
 
+        mLastHasContent = mTmpApplySurfaceChangesTransactionState.displayHasContent;
         mService.mDisplayManagerInternal.setDisplayProperties(mDisplayId,
-                mTmpApplySurfaceChangesTransactionState.displayHasContent,
+                mLastHasContent,
                 mTmpApplySurfaceChangesTransactionState.preferredRefreshRate,
                 mTmpApplySurfaceChangesTransactionState.preferredModeId,
                 true /* inTraversal, must call performTraversalInTrans... below */);
@@ -3890,7 +3895,7 @@ class DisplayContent extends WindowContainer<DisplayContent.DisplayChildWindowCo
         SurfaceSession s = child != null ? child.getSession() : getSession();
         final SurfaceControl.Builder b = mService.makeSurfaceBuilder(s);
         b.setSize(mSurfaceSize, mSurfaceSize);
-
+        b.setContainerLayer(true);
         if (child == null) {
             return b;
         }
@@ -4051,5 +4056,12 @@ class DisplayContent extends WindowContainer<DisplayContent.DisplayChildWindowCo
      */
     private boolean canUpdateImeTarget() {
         return mDeferUpdateImeTargetCount == 0;
+    }
+
+    /**
+     * @return Cached value whether we told display manager that we have content.
+     */
+    boolean getLastHasContent() {
+        return mLastHasContent;
     }
 }
